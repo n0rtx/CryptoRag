@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- CryptoRag ---
+.venv/
+node_modules/
+# собранный фронтенд КОММИТИМ (на PythonAnywhere нет сборки node)
+!frontend/dist/
+!frontend/dist/**
