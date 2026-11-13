@@ -1,24 +1,40 @@
-"""Конфигурация из переменных окружения (.env)."""
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-# Явный путь к .env — на PythonAnywhere рабочая директория WSGI не совпадает с проектом
 load_dotenv(ROOT / ".env")
 
 
 def _f(name: str, default: float) -> float:
+    """Read a float environment variable.
+
+    Args:
+        name: Environment variable name.
+        default: Value used when the variable is not set.
+
+    Returns:
+        The parsed float value.
+    """
     return float(os.getenv(name, default))
 
 
 def _i(name: str, default: int) -> int:
+    """Read an integer environment variable.
+
+    Args:
+        name: Environment variable name.
+        default: Value used when the variable is not set.
+
+    Returns:
+        The parsed integer value.
+    """
     return int(os.getenv(name, default))
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-if OPENAI_API_KEY in ("sk-...", "your-key-here"):  # плейсхолдер из .env.example
+if OPENAI_API_KEY in ("sk-...", "your-key-here"):
     OPENAI_API_KEY = ""
 CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 EMBED_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
@@ -40,3 +56,12 @@ KNOWLEDGE_DIR = ROOT / "data" / "knowledge"
 INDEX_DIR = ROOT / "data" / "index"
 MODEL_PATH = ROOT / "models" / "query_filter.joblib"
 FRONTEND_DIST = ROOT / "frontend" / "dist"
+
+MARKET_SYMBOLS = [s.strip().upper() for s in os.getenv("MARKET_SYMBOLS", "BTC,ETH,SOL,BNB,XRP,DOGE").split(",") if s.strip()]
+MARKET_REFRESH_SECONDS = _i("MARKET_REFRESH_SECONDS", 7200)
+MARKET_ONDEMAND_TTL = _i("MARKET_ONDEMAND_TTL", 600)
+MARKET_PROVIDERS = [p.strip().lower() for p in os.getenv("MARKET_PROVIDERS", "coingecko,binance,coinbase").split(",") if p.strip()]
+MARKET_BACKGROUND = os.getenv("MARKET_BACKGROUND", "true").strip().lower() in ("1", "true", "yes")
+BINANCE_BASE_URL = os.getenv("BINANCE_BASE_URL", "https://api.binance.com/api/v3").rstrip("/")
+COINBASE_BASE_URL = os.getenv("COINBASE_BASE_URL", "https://api.exchange.coinbase.com").rstrip("/")
+CACHE_DIR = ROOT / "data" / "cache"

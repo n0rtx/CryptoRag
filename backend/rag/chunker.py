@@ -1,4 +1,3 @@
-"""Нарезка markdown-документов на чанки по заголовкам/абзацам."""
 import re
 
 MAX_CHARS = 900
@@ -6,7 +5,17 @@ OVERLAP = 120
 
 
 def chunk_markdown(text: str, source: str) -> list[dict]:
-    """Делит по заголовкам '#', затем по абзацам до MAX_CHARS. Заголовок добавляется к каждому чанку."""
+    """Split a markdown document into overlapping chunks.
+
+    The document is split by headings and then by paragraphs, and the heading is prepended to each chunk.
+
+    Args:
+        text: Markdown source.
+        source: Name of the document, stored in each chunk.
+
+    Returns:
+        A list of chunk dictionaries with ``source``, ``title`` and ``text``.
+    """
     sections: list[tuple[str, str]] = []
     title, buf = "", []
     for line in text.splitlines():
@@ -37,5 +46,15 @@ def chunk_markdown(text: str, source: str) -> list[dict]:
 
 
 def _mk(source: str, title: str, text: str) -> dict:
+    """Build a chunk dictionary.
+
+    Args:
+        source: Name of the source document.
+        title: Section heading.
+        text: Chunk body.
+
+    Returns:
+        A chunk dictionary with the heading prepended to the text.
+    """
     prefix = f"{title}\n" if title else ""
     return {"source": source, "title": title, "text": prefix + text}

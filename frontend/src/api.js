@@ -1,4 +1,9 @@
-// Относительные URL: фронт и API живут на одном домене (Flask раздаёт и то, и другое)
+/**
+ * Send a question to the RAG backend.
+ * @param {string} question - The user's question.
+ * @returns {Promise<object>} Answer payload with text, sources and metadata.
+ * @throws {Error} If the server responds with an error status.
+ */
 export async function ask(question) {
   const r = await fetch("/api/ask", {
     method: "POST",
@@ -10,14 +15,12 @@ export async function ask(question) {
   return data;
 }
 
-export async function getPrice(symbol) {
-  const r = await fetch(`/api/price/${symbol}`);
+/**
+ * Fetch cached prices and 7-day charts for all tracked coins.
+ * @returns {Promise<{updated: string|null, refresh_seconds: number, coins: object[]}|null>} Market overview, or null if the request failed.
+ */
+export async function getMarket() {
+  const r = await fetch("/api/market");
   if (!r.ok) return null;
   return r.json();
-}
-
-export async function getChart(symbol, days = 7) {
-  const r = await fetch(`/api/chart/${symbol}?days=${days}`);
-  if (!r.ok) return null;
-  return (await r.json()).prices;
 }

@@ -1,7 +1,3 @@
-"""Классификатор «запрос про крипту / мусор»: TF-IDF (char+word n-gram) + LogisticRegression.
-
-Весит ~сотни КБ, работает за миллисекунды на CPU, не требует torch — идеально для PythonAnywhere.
-"""
 import logging
 import threading
 
@@ -17,6 +13,11 @@ _lock = threading.Lock()
 
 
 def _load():
+    """Load the trained filter model once and cache it.
+
+    Returns:
+        The model, or None if it has not been trained yet.
+    """
     global _model
     with _lock:
         if _model is None and config.MODEL_PATH.exists():
@@ -26,7 +27,16 @@ def _load():
 
 
 def evaluate(text: str) -> dict:
-    """Решение фильтра: {'allowed': bool, 'reason': str, 'score': float|None, 'coins': [...]}"""
+    """Decide whether a question should reach the LLM.
+
+    Combines the rule checks, coin detection and the ML relevance score.
+
+    Args:
+        text: User question.
+
+    Returns:
+        A dictionary with ``allowed``, ``reason``, ``score`` and ``coins``.
+    """
     reason = rules.check(text, config.MAX_QUESTION_CHARS)
     if reason:
         return {"allowed": False, "reason": reason, "score": None, "coins": []}
@@ -34,12 +44,10 @@ def evaluate(text: str) -> dict:
     coins = detect_coins(text)
     model = _load()
     if model is None:
-        # Модель не обучена — работаем только на правилах + упоминании монет (fail-open с предупреждением)
         log.warning("Модель фильтра не найдена, запустите scripts/train_filter.py")
         return {"allowed": True, "reason": "no_model", "score": None, "coins": coins}
 
     score = float(model.predict_proba([text.lower()])[0][1])
-    # Явное упоминание монеты повышает уверенность (защита от ложных отказов на коротких запросах)
     eff = max(score, 0.6) if coins else score
     allowed = eff >= config.FILTER_THRESHOLD
     return {"allowed": allowed, "reason": "ok" if allowed else "off_topic", "score": round(score, 3), "coins": coins}

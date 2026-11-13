@@ -1,7 +1,5 @@
-"""Справочник монет: тикер -> CoinGecko id, алиасы для распознавания в тексте."""
 import re
 
-# symbol: (coingecko_id, name, [алиасы в нижнем регистре, рус/англ])
 COINS: dict[str, tuple[str, str, list[str]]] = {
     "BTC": ("bitcoin", "Bitcoin", ["btc", "bitcoin", "биткоин", "биткойн", "биток", "битка"]),
     "ETH": ("ethereum", "Ethereum", ["eth", "ethereum", "эфир", "эфириум", "эфира", "эфире"]),
@@ -32,23 +30,30 @@ for _sym, (_cg, _name, _aliases) in COINS.items():
     for _a in _aliases:
         _ALIAS_TO_SYMBOL[_a] = _sym
 
-# длинные алиасы первыми, чтобы "xrp ledger" побеждал "xrp"
 _PATTERN = re.compile(
     r"(?<![\w])(" + "|".join(re.escape(a) for a in sorted(_ALIAS_TO_SYMBOL, key=len, reverse=True)) + r")(?![\w])",
     re.IGNORECASE,
 )
-# Слова-омонимы (link, near, sol, op, ton, dot, atom...) требуют крипто-контекста, иначе ложные срабатывания
 _AMBIGUOUS = {"link", "near", "sol", "op", "ton", "dot", "atom", "sui", "arb", "ada", "тон", "космос", "оптимизм", "трон", "полигон", "доге"}
 _UPPER_OK = re.compile(r"\b[A-Z]{2,5}\b")
 
 
 def detect_coins(text: str, limit: int = 3) -> list[str]:
-    """Возвращает тикеры монет, упомянутых в тексте (в порядке появления)."""
+    """Find cryptocurrencies mentioned in a text.
+
+    Ambiguous words (for example ``link`` or ``sol``) are accepted only when written in upper case, to avoid false positives.
+
+    Args:
+        text: User text to scan.
+        limit: Maximum number of tickers to return.
+
+    Returns:
+        Ticker symbols in order of appearance, without duplicates.
+    """
     found: list[str] = []
     for m in _PATTERN.finditer(text):
         word = m.group(1)
         low = word.lower()
-        # Омонимы принимаем только если написаны капсом (SOL, LINK) — это почти всегда тикер
         if low in _AMBIGUOUS and not (word.isupper() and _UPPER_OK.fullmatch(word)):
             continue
         sym = _ALIAS_TO_SYMBOL[low]
@@ -60,10 +65,26 @@ def detect_coins(text: str, limit: int = 3) -> list[str]:
 
 
 def coingecko_id(symbol: str) -> str | None:
+    """Map a ticker symbol to its CoinGecko identifier.
+
+    Args:
+        symbol: Ticker symbol, case-insensitive.
+
+    Returns:
+        The CoinGecko id, or None if the coin is unknown.
+    """
     c = COINS.get(symbol.upper())
     return c[0] if c else None
 
 
 def coin_name(symbol: str) -> str:
+    """Get the display name of a coin.
+
+    Args:
+        symbol: Ticker symbol, case-insensitive.
+
+    Returns:
+        The coin name, or the upper-cased symbol if the coin is unknown.
+    """
     c = COINS.get(symbol.upper())
     return c[1] if c else symbol.upper()

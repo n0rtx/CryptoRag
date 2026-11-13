@@ -1,4 +1,3 @@
-"""Дешёвые правила до ML-классификатора: длина, мусор, prompt-injection."""
 import re
 
 _INJECTION = re.compile(
@@ -12,7 +11,15 @@ _URL = re.compile(r"https?://|www\.|t\.me/", re.IGNORECASE)
 
 
 def check(text: str, max_chars: int) -> str | None:
-    """None — прошло; иначе строка-причина отказа."""
+    """Apply cheap rule-based checks before the ML filter.
+
+    Args:
+        text: User text.
+        max_chars: Maximum allowed length.
+
+    Returns:
+        None if the text passes, otherwise a short rejection reason.
+    """
     t = text.strip()
     if len(t) < 2:
         return "empty"
@@ -24,6 +31,6 @@ def check(text: str, max_chars: int) -> str | None:
         return "injection"
     if len(_URL.findall(t)) >= 2:
         return "spam_links"
-    if re.search(r"(.)\1{9,}", t):  # "аааааааааа"
+    if re.search(r"(.)\1{9,}", t):
         return "gibberish"
     return None

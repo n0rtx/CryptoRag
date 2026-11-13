@@ -1,10 +1,3 @@
-"""Построение векторного индекса: data/knowledge/*.md (+ описания монет из CoinGecko).
-
-Запуск (нужен OPENAI_API_KEY):
-    python scripts/ingest.py                # только локальные .md
-    python scripts/ingest.py --coingecko    # + описания всех монет из backend/coins.py
-Индекс сохраняется в data/index/ и коммитится в репозиторий (деплой на PythonAnywhere без ключей на этапе сборки).
-"""
 import argparse
 import re
 import sys
@@ -25,11 +18,24 @@ from backend.rag.store import VectorStore
 
 
 def symbol_from_filename(name: str) -> str | None:
+    """Derive a coin symbol from a knowledge file name.
+
+    Args:
+        name: File stem, for example ``btc``.
+
+    Returns:
+        The upper-cased symbol if it is a known coin, otherwise None.
+    """
     s = name.upper()
     return s if s in COINS else None
 
 
 def fetch_coingecko_docs() -> list[dict]:
+    """Download coin descriptions from CoinGecko as knowledge documents.
+
+    Returns:
+        A list of document dictionaries with ``source``, ``symbol`` and ``text``.
+    """
     docs = []
     for sym, (cg_id, name, _) in COINS.items():
         try:
@@ -52,11 +58,12 @@ def fetch_coingecko_docs() -> list[dict]:
                 print(f"  + {sym}: {len(desc)} chars")
         except Exception as e:
             print(f"  ! {sym}: {e}")
-        time.sleep(2.5)  # бережём лимиты бесплатного API
+        time.sleep(2.5)
     return docs
 
 
 def main():
+    """Build the vector index from the knowledge base and optional CoinGecko profiles."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--coingecko", action="store_true", help="добавить описания монет из CoinGecko")
     args = ap.parse_args()

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ask, getChart, getPrice } from "./api";
+import { ask, getMarket } from "./api";
 import Market from "./Market.jsx";
 
 const EXAMPLES = [
@@ -10,29 +10,38 @@ const EXAMPLES = [
   "Что такое халвинг биткоина?",
   "How does Ethereum staking work?",
 ];
-const MARKET_SYMBOLS = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE"];
 
+/** Sun icon shown in the dark theme. */
 const Sun = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <circle cx="12" cy="12" r="4" />
     <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
   </svg>
 );
+/** Moon icon shown in the light theme. */
 const Moon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
   </svg>
 );
 
+/**
+ * Manage the color theme and persist it in localStorage.
+ * @returns {[string, Function]} Current theme name and a function that toggles it.
+ */
 function useTheme() {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || "dark");
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    try { localStorage.setItem("theme", theme); } catch (e) { /* приватный режим — не критично */ }
+    try { localStorage.setItem("theme", theme); } catch (e) {}
   }, [theme]);
   return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
 }
 
+/**
+ * Root component with the chat and market tabs and the theme switch.
+ * @returns {JSX.Element} The application.
+ */
 export default function App() {
   const [tab, setTab] = useState("chat");
   const [theme, toggleTheme] = useTheme();
@@ -45,6 +54,11 @@ export default function App() {
     if (tab === "chat") endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, tab]);
 
+  /**
+   * Send a question to the backend and append the answer to the conversation.
+   * @param {string} text - Question text.
+   * @returns {Promise<void>}
+   */
   async function send(text) {
     const q = text.trim();
     if (!q || loading) return;
@@ -78,9 +92,8 @@ export default function App() {
         <button role="tab" aria-selected={tab === "market"} className={tab === "market" ? "on" : ""} onClick={() => setTab("market")}>Рынок</button>
       </nav>
 
-      {/* Обе вкладки всегда смонтированы и только прячутся — график не перезагружается при переключении */}
       <section className={`panel ${tab === "market" ? "" : "off"}`}>
-        <div className="scroll"><Market symbols={MARKET_SYMBOLS} getPrice={getPrice} getChart={getChart} /></div>
+        <div className="scroll"><Market getMarket={getMarket} /></div>
       </section>
 
       <section className={`panel ${tab === "chat" ? "" : "off"}`}>

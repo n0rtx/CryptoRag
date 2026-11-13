@@ -1,4 +1,3 @@
-"""Ленивая инициализация клиента OpenAI (ключ берётся из .env)."""
 from openai import OpenAI
 
 from .. import config
@@ -7,6 +6,14 @@ _client: OpenAI | None = None
 
 
 def get_client() -> OpenAI:
+    """Return a lazily created, shared OpenAI client.
+
+    Returns:
+        The OpenAI client.
+
+    Raises:
+        RuntimeError: If the API key is not configured.
+    """
     global _client
     if _client is None:
         if not config.OPENAI_API_KEY:
@@ -16,6 +23,14 @@ def get_client() -> OpenAI:
 
 
 def embed(texts: list[str]) -> list[list[float]]:
+    """Compute embeddings for a list of texts in batches.
+
+    Args:
+        texts: Texts to embed.
+
+    Returns:
+        One embedding vector per input text.
+    """
     out: list[list[float]] = []
     for i in range(0, len(texts), 96):
         resp = get_client().embeddings.create(model=config.EMBED_MODEL, input=texts[i : i + 96])

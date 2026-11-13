@@ -225,3 +225,6 @@ node_modules/
 # собранный фронтенд КОММИТИМ (на PythonAnywhere нет сборки node)
 !frontend/dist/
 !frontend/dist/**
+
+.env
+data/cache/

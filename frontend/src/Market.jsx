@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 const NAMES = { BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana", BNB: "BNB", XRP: "XRP", DOGE: "Dogecoin" };
 const W = 320, H = 130, PAD = 8;
 
-// SVG-спарклайн без библиотек; анимация «рисования» — чистый CSS
+/**
+ * Render a price series as an animated SVG sparkline.
+ * @param {{prices: number[]|null, up: boolean, id: string}} props - Price series, trend direction and unique id.
+ * @returns {JSX.Element} The chart, or a skeleton placeholder while data is loading.
+ */
 function Sparkline({ prices, up, id }) {
   if (!prices || prices.length < 2) return <div className="spark skeleton" />;
   const min = Math.min(...prices), max = Math.max(...prices), span = max - min || 1;
@@ -32,52 +36,77 @@ function Sparkline({ prices, up, id }) {
   );
 }
 
-export default function Market({ symbols, getPrice, getChart }) {
-  const [data, setData] = useState({});
-  const [charts, setCharts] = useState({});
+/**
+ * Describe a refresh interval in Russian.
+ * @param {number} seconds - Interval in seconds.
+ * @returns {string} For example "2 ч" or "10 мин".
+ */
+function formatInterval(seconds) {
+  if (seconds >= 3600) return `${Math.round(seconds / 360) / 10} ч`.replace(".0", "");
+  return `${Math.max(1, Math.round(seconds / 60))} мин`;
+}
+
+/**
+ * Grid of coin cards with cached prices and 7-day charts.
+ * @param {{getMarket: Function}} props - Loader for the market overview.
+ * @returns {JSX.Element} The market grid.
+ */
+export default function Market({ getMarket }) {
+  const [overview, setOverview] = useState(null);
 
   useEffect(() => {
     let alive = true;
-    const loadPrices = async () => {
-      const res = await Promise.all(symbols.map((s) => getPrice(s).catch(() => null)));
-      if (alive) setData(Object.fromEntries(symbols.map((s, i) => [s, res[i]])));
+    let timer;
+    /** Load the overview and poll quickly until all coins have data, then slowly. */
+    const load = async () => {
+      const data = await getMarket().catch(() => null);
+      if (!alive) return;
+      if (data) setOverview(data);
+      const complete = data && data.coins.every((c) => c.price_usd !== null && c.prices);
+      timer = setTimeout(load, complete ? 300000 : 15000);
     };
-    const loadCharts = async () => {
-      const res = await Promise.all(symbols.map((s) => getChart(s, 7).catch(() => null)));
-      if (alive) setCharts(Object.fromEntries(symbols.map((s, i) => [s, res[i]])));
-    };
-    loadPrices();
-    loadCharts();
-    const p = setInterval(loadPrices, 60000);
-    const c = setInterval(loadCharts, 600000);
-    return () => { alive = false; clearInterval(p); clearInterval(c); };
+    load();
+    return () => { alive = false; clearTimeout(timer); };
   }, []);
 
+  const coins = overview?.coins ?? [];
+  const updated = overview?.updated ? new Date(overview.updated) : null;
+  const sources = [...new Set(coins.map((c) => c.source).filter(Boolean))];
+
   return (
-    <div className="market">
-      {symbols.map((s, i) => {
-        const d = data[s];
-        const ch = d?.change_24h_pct;
-        const series = charts[s];
-        const trendUp = series ? series[series.length - 1] >= series[0] : (ch ?? 0) >= 0;
-        const week = series ? (series[series.length - 1] / series[0] - 1) * 100 : null;
-        return (
-          <div key={s} className={`tick ${trendUp ? "t-up" : "t-down"}`} style={{ animationDelay: `${i * 80}ms` }}>
-            <div className="tick-head">
-              <div className="coin"><b>{s}</b><small>{NAMES[s] || s}</small></div>
-              {typeof ch === "number" && (
-                <em className={`chip ${ch >= 0 ? "up" : "down"}`}>{ch >= 0 ? "▲" : "▼"} {Math.abs(ch).toFixed(2)}% <small>24ч</small></em>
-              )}
+    <>
+      <div className="market">
+        {coins.length === 0 && Array.from({ length: 6 }, (_, i) => <div key={i} className="tick"><div className="spark skeleton" style={{ height: 190 }} /></div>)}
+        {coins.map((c, i) => {
+          const ch = c.change_24h_pct;
+          const series = c.prices;
+          const trendUp = series ? series[series.length - 1] >= series[0] : (ch ?? 0) >= 0;
+          const week = series ? (series[series.length - 1] / series[0] - 1) * 100 : null;
+          return (
+            <div key={c.symbol} className={`tick ${trendUp ? "t-up" : "t-down"}`} style={{ animationDelay: `${i * 80}ms` }}>
+              <div className="tick-head">
+                <div className="coin"><b>{c.symbol}</b><small>{c.name}</small></div>
+                {typeof ch === "number" && (
+                  <em className={`chip ${ch >= 0 ? "up" : "down"}`}>{ch >= 0 ? "▲" : "▼"} {Math.abs(ch).toFixed(2)}% <small>24ч</small></em>
+                )}
+              </div>
+              <div className="price">{c.price_usd !== null ? `$${c.price_usd.toLocaleString("en-US", { maximumFractionDigits: c.price_usd < 1 ? 4 : 2 })}` : "—"}</div>
+              <Sparkline prices={series} up={trendUp} id={c.symbol} />
+              <div className="tick-foot">
+                <span>7 дней</span>
+                {week !== null && <span className={week >= 0 ? "up" : "down"}>{week >= 0 ? "+" : ""}{week.toFixed(2)}%</span>}
+              </div>
             </div>
-            <div className="price">{d ? `$${d.price_usd.toLocaleString("en-US", { maximumFractionDigits: d.price_usd < 1 ? 4 : 2 })}` : "—"}</div>
-            <Sparkline prices={series} up={trendUp} id={s} />
-            <div className="tick-foot">
-              <span>7 дней</span>
-              {week !== null && <span className={week >= 0 ? "up" : "down"}>{week >= 0 ? "+" : ""}{week.toFixed(2)}%</span>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      {overview && (
+        <div className="market-meta">
+          {updated ? `Обновлено ${updated.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : "Данные загружаются…"}
+          {sources.length > 0 && ` · ${sources.join(", ")}`}
+          {` · обновление каждые ${formatInterval(overview.refresh_seconds)}`}
+        </div>
+      )}
+    </>
   );
 }

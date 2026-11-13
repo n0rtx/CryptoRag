@@ -1,7 +1,3 @@
-"""Обучение фильтра мусорных запросов. Запуск: python scripts/train_filter.py
-
-Результат: models/query_filter.joblib (коммитится в репозиторий — на сервере обучать не нужно).
-"""
 import sys
 from pathlib import Path
 
@@ -19,6 +15,11 @@ from backend.guard.dataset import build
 
 
 def make_pipeline() -> Pipeline:
+    """Create the filter model: char and word TF-IDF features with logistic regression.
+
+    Returns:
+        An untrained scikit-learn pipeline.
+    """
     feats = FeatureUnion([
         ("char", TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 5), sublinear_tf=True, min_df=2)),
         ("word", TfidfVectorizer(analyzer="word", ngram_range=(1, 2), sublinear_tf=True)),
@@ -27,13 +28,14 @@ def make_pipeline() -> Pipeline:
 
 
 def main():
+    """Train the query filter, print evaluation metrics and save the model."""
     X, y = build(extra_csv=config.ROOT / "data" / "filter_extra.csv")
     X = [t.lower() for t in X]
     print(f"Примеров: {len(X)} (крипта: {sum(y)}, мусор: {len(y) - sum(y)})")
     Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=1, stratify=y)
     p = make_pipeline().fit(Xtr, ytr)
     print(classification_report(yte, p.predict(Xte), target_names=["junk", "crypto"], digits=3))
-    p = make_pipeline().fit(X, y)  # финальная модель — на всех данных
+    p = make_pipeline().fit(X, y)
     config.MODEL_PATH.parent.mkdir(exist_ok=True)
     joblib.dump(p, config.MODEL_PATH, compress=3)
     print(f"Сохранено: {config.MODEL_PATH} ({config.MODEL_PATH.stat().st_size / 1024:.0f} КБ)")
